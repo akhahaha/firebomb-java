@@ -8,10 +8,10 @@ import java.util.List;
 /**
  * Firebase Java server {@link DataSnapshot} wrapper
  */
-public class FirebaseServerData implements Data {
+public class FirebaseData implements Data {
     private DataSnapshot snapshot;
 
-    public FirebaseServerData(DataSnapshot snapshot) {
+    public FirebaseData(DataSnapshot snapshot) {
         this.snapshot = snapshot;
     }
 
@@ -32,13 +32,13 @@ public class FirebaseServerData implements Data {
 
     @Override
     public Data child(String path) {
-        return new FirebaseServerData(snapshot.child(path));
+        return new FirebaseData(snapshot.child(path));
     }
 
     @Override
     public List<Data> getChildren() {
         List<Data> children = new ArrayList<>();
-        snapshot.getChildren().forEach(dataSnapshot -> children.add(new FirebaseServerData(dataSnapshot)));
+        snapshot.getChildren().forEach(dataSnapshot -> children.add(new FirebaseData(dataSnapshot)));
         return children;
     }
 }

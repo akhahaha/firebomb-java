@@ -1,0 +1,4 @@
+dependencies {
+    compile project(':core')
+    compile 'com.google.firebase:firebase-server-sdk:3.0.1'
+}

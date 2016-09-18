@@ -1,15 +1,16 @@
-group 'firebomb-java'
-version '0.1.0-SNAPSHOT'
+subprojects {
+    group 'firebomb-java'
+    version '0.1.0-SNAPSHOT'
 
-apply plugin: 'java'
+    apply plugin: 'java'
 
-sourceCompatibility = 1.8
+    sourceCompatibility = 1.8
 
-repositories {
-    mavenCentral()
-}
+    repositories {
+        mavenCentral()
+    }
 
-dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.11'
-    compile 'com.google.firebase:firebase-server-sdk:3.0.1'
+    dependencies {
+        testCompile group: 'junit', name: 'junit', version: '4.11'
+    }
 }

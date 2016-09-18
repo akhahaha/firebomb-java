@@ -11,10 +11,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Firebase Java server {@link FirebaseDatabase} connection wrapper
  */
-public class FirebaseServerManager implements DatabaseManager {
+public class FirebaseManager implements DatabaseManager {
     private FirebaseDatabase database;
 
-    public FirebaseServerManager(FirebaseDatabase database) {
+    public FirebaseManager(FirebaseDatabase database) {
         this.database = database;
     }
 
@@ -24,7 +24,7 @@ public class FirebaseServerManager implements DatabaseManager {
         database.getReference(path).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                promise.complete(new FirebaseServerData(dataSnapshot));
+                promise.complete(new FirebaseData(dataSnapshot));
             }
 
             @Override
