@@ -1,7 +1,8 @@
 package firebomb.database;
 
+import java8.util.concurrent.CompletableFuture;
+
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Database connection interface

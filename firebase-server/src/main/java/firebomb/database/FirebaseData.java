@@ -38,7 +38,9 @@ public class FirebaseData implements Data {
     @Override
     public List<Data> getChildren() {
         List<Data> children = new ArrayList<>();
-        snapshot.getChildren().forEach(dataSnapshot -> children.add(new FirebaseData(dataSnapshot)));
+        for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
+            children.add(new FirebaseData(dataSnapshot));
+        }
         return children;
     }
 }

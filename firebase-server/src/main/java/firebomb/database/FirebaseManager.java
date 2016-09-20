@@ -1,12 +1,9 @@
 package firebomb.database;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.*;
+import java8.util.concurrent.CompletableFuture;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Firebase Java server {@link FirebaseDatabase} connection wrapper
@@ -19,7 +16,7 @@ public class FirebaseManager implements DatabaseManager {
     }
 
     public CompletableFuture<Data> read(String path) {
-        CompletableFuture<Data> promise = new CompletableFuture<>();
+        final CompletableFuture<Data> promise = new CompletableFuture<>();
 
         database.getReference(path).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -41,12 +38,15 @@ public class FirebaseManager implements DatabaseManager {
     }
 
     public CompletableFuture<Void> write(String path, Map<String, Object> writeMap) {
-        CompletableFuture<Void> promise = new CompletableFuture<>();
-        database.getReference(path).updateChildren(writeMap, (databaseError, databaseReference) -> {
-            if (databaseError == null) {
-                promise.complete(null);
-            } else {
-                promise.completeExceptionally(databaseError.toException());
+        final CompletableFuture<Void> promise = new CompletableFuture<>();
+        database.getReference(path).updateChildren(writeMap, new DatabaseReference.CompletionListener() {
+            @Override
+            public void onComplete(DatabaseError databaseError, DatabaseReference databaseReference) {
+                if (databaseError == null) {
+                    promise.complete(null);
+                } else {
+                    promise.completeExceptionally(databaseError.toException());
+                }
             }
         });
 

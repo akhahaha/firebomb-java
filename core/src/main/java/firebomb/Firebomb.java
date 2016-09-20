@@ -1,13 +1,17 @@
 package firebomb;
 
+import firebomb.database.Data;
 import firebomb.database.DatabaseManager;
 import firebomb.definition.*;
+import firebomb.util.StringUtils;
+import java8.util.concurrent.CompletableFuture;
+import java8.util.function.Consumer;
+import java8.util.function.Function;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 public class Firebomb {
@@ -41,10 +45,10 @@ public class Firebomb {
         this.rootPath = rootPath;
     }
 
-    public <T> CompletableFuture<T> find(Class<T> entityType, String id) {
-        CompletableFuture<T> promise = new CompletableFuture<T>();
+    public <T> CompletableFuture<T> find(final Class<T> entityType, String id) {
+        final CompletableFuture<T> promise = new CompletableFuture<>();
 
-        EntityDefinition entityDef;
+        final EntityDefinition entityDef;
         try {
             entityDef = new EntityDefinition(entityType);
         } catch (Exception e) {
@@ -53,62 +57,68 @@ public class Firebomb {
         }
 
         String path = path(entityDef.getReference(), id);
-        connection.read(path(rootPath, path))
-                .thenAccept(entityData -> {
-                    try {
-                        if (entityData.getValue() == null) {
-                            promise.complete(null);
-                            return;
+        connection.read(path(rootPath, path)).thenAccept(
+                new Consumer<Data>() {
+                    @Override
+                    public void accept(Data entityData) {
+                        try {
+                            if (entityData.getValue() == null) {
+                                promise.complete(null);
+                                return;
+                            }
+
+                            T entity = entityType.newInstance();
+
+                            // Set ID
+                            entityDef.setId(entity, (String) entityData.child(entityDef.getIdName()).getValue());
+
+                            // Set fields
+                            for (FieldDefinition fieldDef : entityDef.getFieldDefinitions()) {
+                                fieldDef.set(entity, entityData.child(fieldDef.getName()).getValue(fieldDef.getType()));
+                                // TODO Verify lists
+                            }
+
+                            // Set relations
+                            // TODO Implement eager loading
+                            for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
+                                List<Object> foreignEntities = new ArrayList<>();
+                                for (Data foreignEntityData : entityData.child(manyToManyDef.getName()).getChildren()) {
+                                    foreignEntities.add(foreignEntityData.getValue(manyToManyDef.getForeignEntityType()));
+                                }
+                                manyToManyDef.set(entity, foreignEntities);
+                            }
+
+                            for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
+                                manyToOneDef.set(entity, entityData.child(manyToOneDef.getName()).getChildren().get(0)
+                                        .getValue(manyToOneDef.getForeignEntityType()));
+                            }
+
+                            for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
+                                List<Object> foreignEntities = new ArrayList<>();
+                                for (Data foreignEntityData : entityData.child(oneToManyDef.getName()).getChildren()) {
+                                    foreignEntityData.getValue(oneToManyDef.getForeignEntityType());
+                                }
+                                oneToManyDef.set(entity, foreignEntities);
+                            }
+
+                            promise.complete(entity);
+                        } catch (InstantiationException | IllegalAccessException e) {
+                            promise.completeExceptionally(e);
                         }
-
-                        T entity = entityType.newInstance();
-
-                        // Set ID
-                        entityDef.setId(entity, (String) entityData.child(entityDef.getIdName()).getValue());
-
-                        // Set fields
-                        for (FieldDefinition fieldDef : entityDef.getFieldDefinitions()) {
-                            fieldDef.set(entity, entityData.child(fieldDef.getName()).getValue(fieldDef.getType()));
-                            // TODO Verify lists
-                        }
-
-                        // Set relations
-                        // TODO Implement eager loading
-                        for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
-                            List<Object> foreignEntities = new ArrayList<>();
-                            entityData.child(manyToManyDef.getName()).getChildren()
-                                    .forEach(foreignEntityData -> foreignEntities.add(
-                                            foreignEntityData.getValue(manyToManyDef.getForeignEntityType())));
-                            manyToManyDef.set(entity, foreignEntities);
-                        }
-
-                        for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
-                            manyToOneDef.set(entity, entityData.child(manyToOneDef.getName()).getChildren().get(0)
-                                    .getValue(manyToOneDef.getForeignEntityType()));
-                        }
-
-                        for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
-                            List<Object> foreignEntities = new ArrayList<>();
-                            entityData.child(oneToManyDef.getName()).getChildren()
-                                    .forEach(foreignEntityData -> foreignEntities.add(
-                                            foreignEntityData.getValue(oneToManyDef.getForeignEntityType())));
-                            oneToManyDef.set(entity, foreignEntities);
-                        }
-
-                        promise.complete(entity);
-                    } catch (InstantiationException | IllegalAccessException e) {
-                        promise.completeExceptionally(e);
                     }
-                })
-                .exceptionally(throwable -> {
-                    promise.completeExceptionally(throwable);
-                    return null;
+                }).exceptionally(
+                new Function<Throwable, Void>() {
+                    @Override
+                    public Void apply(Throwable throwable) {
+                        promise.completeExceptionally(throwable);
+                        return null;
+                    }
                 });
 
         return promise;
     }
 
-    public <T> CompletableFuture<T> persist(T entity) {
+    public <T> CompletableFuture<T> persist(final T entity) {
         CompletableFuture<T> promise = new CompletableFuture<>();
 
         // Construct entity definition
@@ -187,7 +197,12 @@ public class Firebomb {
         }
 
         // Write
-        return connection.write(rootPath, writeMap).thenApply(aVoid -> entity);
+        return connection.write(rootPath, writeMap).thenApply(new Function<Void, T>() {
+            @Override
+            public T apply(Void aVoid) {
+                return entity;
+            }
+        });
     }
 
     public CompletableFuture<Void> remove(Class entityType, String id) {
@@ -218,7 +233,7 @@ public class Firebomb {
     }
 
     private Map<String, Object> constructDeleteMap(EntityDefinition entityDefinition, String id)
-            throws ExecutionException, InterruptedException {
+            throws InterruptedException, ExecutionException {
         Map<String, Object> writeMap = new HashMap<>();
 
         Object entity = find(entityDefinition.getEntityType(), id).get();
@@ -266,7 +281,7 @@ public class Firebomb {
     }
 
     private static String path(String... nodes) {
-        return String.join("/", (CharSequence[]) nodes);
+        return StringUtils.join("/", nodes);
     }
 
     private static Map<String, String> kvp(String key, String value) {

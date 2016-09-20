@@ -1,5 +1,7 @@
 package firebomb.definition;
 
+import firebomb.util.StringUtils;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -62,6 +64,6 @@ public abstract class PropertyDefinition {
     }
 
     protected static String path(String... nodes) {
-        return String.join("/", (CharSequence[]) nodes);
+        return StringUtils.join("/", nodes);
     }
 }

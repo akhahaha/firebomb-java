@@ -1,0 +1,3 @@
+dependencies {
+    compile 'net.sourceforge.streamsupport:streamsupport-cfuture:1.5.1'
+}
