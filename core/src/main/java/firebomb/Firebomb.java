@@ -48,7 +48,7 @@ public class Firebomb {
     public <T> void find(final Class<T> entityType, String id, final FirebombCallback<T> callback) {
         final EntityDefinition entityDef;
         try {
-            entityDef = new EntityDefinition(entityType);
+            entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
         } catch (Exception e) {
             if (callback != null) {
                 callback.onException(e);
@@ -126,9 +126,10 @@ public class Firebomb {
 
     public <T> void persist(final T entity, final FirebombCallback<T> callback) {
         // Construct entity definition
+        Class entityType = entity.getClass();
         EntityDefinition entityDef;
         try {
-            entityDef = new EntityDefinition(entity.getClass());
+            entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
         } catch (DefinitionException e) {
             if (callback != null) {
                 callback.onException(e);
@@ -153,7 +154,7 @@ public class Firebomb {
         } else {
             // Cleanup currently persisted foreign indexes
             try {
-                writeMap.putAll(constructDeleteMap(entityDef, entityId).get());
+                writeMap.putAll(constructDeleteMap(entityType, entityId).get());
             } catch (InterruptedException | ExecutionException e) {
                 if (callback != null) {
                     callback.onException(e);
@@ -223,7 +224,7 @@ public class Firebomb {
         // Construct entity definition
         EntityDefinition entityDef;
         try {
-            entityDef = new EntityDefinition(entityType);
+            entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
         } catch (DefinitionException e) {
             if (callback != null) {
                 callback.onException(e);
@@ -235,7 +236,7 @@ public class Firebomb {
 
         // Cleanup currently persisted foreign indexes
         try {
-            writeMap.putAll(constructDeleteMap(entityDef, id).get());
+            writeMap.putAll(constructDeleteMap(entityType, id).get());
         } catch (InterruptedException | ExecutionException e) {
             if (callback != null) {
                 callback.onException(e);
@@ -255,8 +256,8 @@ public class Firebomb {
         });
     }
 
-    private CompletableFuture<Map<String, Object>> constructDeleteMap(final EntityDefinition entityDefinition,
-                                                                      final String id) {
+    private CompletableFuture<Map<String, Object>> constructDeleteMap(Class entityType, final String id) {
+        final EntityDefinition entityDefinition = EntityDefinitionManager.getInstance().getDefinition(entityType);
         final CompletableFuture<Map<String, Object>> promise = new CompletableFuture<>();
         final Map<String, Object> writeMap = new HashMap<>();
 
