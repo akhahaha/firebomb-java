@@ -1,4 +1,63 @@
+plugins {
+    id "com.jfrog.bintray" version "1.7.1"
+}
+
 dependencies {
-    compile project(':core')
-    compile 'com.google.firebase:firebase-server-sdk:3.0.1'
+    compileOnly project(":core")
+    compileOnly "com.google.firebase:firebase-server-sdk:3.0.1"
+}
+
+task sourcesJar(type: Jar) {
+    dependsOn classes
+    classifier 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
+
+publishing {
+    publications {
+        Submodule(MavenPublication) {
+            from components.java
+            artifactId project.artifactId
+            description = project.description
+
+            artifact sourcesJar {
+                classifier "sources"
+            }
+
+            artifact javadocJar {
+                classifier "javadoc"
+            }
+        }
+    }
+}
+
+bintray {
+    user = bintrayUser
+    key = bintrayKey
+    configurations = ["archives"]
+    publications = ["Submodule"]
+
+    pkg {
+        repo = project.group
+        name = project.packageName
+        desc = project.description
+        websiteUrl = project.websiteUrl
+        issueTrackerUrl = project.issueTrackerUrl
+        licenses = [project.license]
+        vcsUrl = project.vcsUrl
+        githubRepo = project.githubRepo
+        publicDownloadNumbers = true
+        publish = true
+        override = true
+    }
 }
