@@ -1,21 +1,29 @@
 package firebomb.definition;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import firebomb.annotation.ManyToOne;
 
 public class ManyToOneDefinition extends RelationDefinition {
+    private BasicEntityDefinition foreignEntityDefinition;
     private String foreignIndexName;
 
-    public ManyToOneDefinition(String name, Field field,
-                               BasicEntityDefinition foreignEntityDefinition, String foreignIndexName) {
-        super(name, field, foreignEntityDefinition);
-        this.foreignIndexName = foreignIndexName;
+    public ManyToOneDefinition(PropertyDefinition propertyDefinition) {
+        super(propertyDefinition);
+        initialize();
     }
 
-    public ManyToOneDefinition(String name, Method getMethod, Method setMethod,
-                               BasicEntityDefinition foreignEntityDefinition, String foreignIndexName) {
-        super(name, getMethod, setMethod, foreignEntityDefinition);
-        this.foreignIndexName = foreignIndexName;
+    private void initialize() {
+        if (!isAnnotationPresent(ManyToOne.class)) {
+            throw new DefinitionException("ManyToOne property '" + getEntityName() + "." + getName() +
+                    "'missing ManyToOne annotation.");
+        }
+
+        foreignEntityDefinition = EntityDefinitionManager.getInstance().getBasicDefinition(getType());
+        foreignIndexName = getAnnotation(ManyToOne.class).foreignIndexName();
+    }
+
+    @Override
+    public BasicEntityDefinition getForeignEntityDefinition() {
+        return foreignEntityDefinition;
     }
 
     public String getForeignIndexName() {

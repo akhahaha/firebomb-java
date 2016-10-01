@@ -1,8 +1,10 @@
 package firebomb.definition;
 
-import firebomb.annotation.*;
+import firebomb.annotation.Id;
+import firebomb.annotation.ManyToMany;
+import firebomb.annotation.ManyToOne;
+import firebomb.annotation.OneToMany;
 
-import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
@@ -16,96 +18,29 @@ public class EntityDefinition extends BasicEntityDefinition {
     public EntityDefinition(Class<?> entityType) throws DefinitionException {
         super(entityType);
 
-        // Get properties
         Set<String> propertyNames = new HashSet<>();
-
-        // Inspect fields
-        for (java.lang.reflect.Field field : entityType.getFields()) {
-            if (field.isAnnotationPresent(Ignore.class)) {
-                continue;
+        for (PropertyDefinition property : getProperties()) {
+            // Check for property
+            if (property.isAnnotationPresent(ManyToMany.class)) {
+                manyToManyDefinitions.add(new ManyToManyDefinition(property));
+            } else if (property.isAnnotationPresent(ManyToOne.class)) {
+                manyToOneDefinitions.add(new ManyToOneDefinition(property));
+            } else if (property.isAnnotationPresent(OneToMany.class)) {
+                oneToManyDefinitions.add(new OneToManyDefinition(property));
+            } else if (!property.isAnnotationPresent(Id.class)) {
+                // Id set in BasicEntityDefinition
+                // Only fields should remain
+                fieldDefinitions.add(new FieldDefinition(property));
             }
 
-            String name = field.getName();
-            if (field.isAnnotationPresent(Property.class)) {
-                name = field.getAnnotation(Property.class).value();
-            }
-
-            // Check property
-            int fieldPropertyDefinitionCount = 0;
-            if (field.isAnnotationPresent(ManyToMany.class)) {
-                String foreignIndexName = field.getAnnotation(ManyToMany.class).foreignIndexName();
-
-                // Verify is collection
-                if (!Collection.class.isAssignableFrom(field.getType())) {
-                    throw new DefinitionException("ManyToOne property '" + getName() + "." + name + "' " +
-                            "must extend Collection");
-                }
-
-                Class foreignEntityType = getGenericParameterClass(field.getGenericType());
-                if (foreignEntityType == null) {
-                    throw new DefinitionException("ManyToOne property '" + getName() + "." + name + "' " +
-                            "unable to resolve generic type parameter.");
-                }
-
-                manyToManyDefinitions.add(new ManyToManyDefinition(name, field,
-                        new BasicEntityDefinition(foreignEntityType), foreignIndexName));
-                fieldPropertyDefinitionCount++;
-            }
-
-            if (field.isAnnotationPresent(ManyToOne.class)) {
-                String foreignIndexName = field.getAnnotation(ManyToOne.class).foreignIndexName();
-                Class foreignEntityType = field.getType();
-                manyToOneDefinitions.add(new ManyToOneDefinition(name, field,
-                        new BasicEntityDefinition(foreignEntityType), foreignIndexName));
-                fieldPropertyDefinitionCount++;
-            }
-
-            if (field.isAnnotationPresent(OneToMany.class)) {
-                String foreignFieldName = field.getAnnotation(OneToMany.class).foreignFieldName();
-
-                // Verify is collection
-                if (!Collection.class.isAssignableFrom(field.getType())) {
-                    throw new DefinitionException("ManyToOne property '" + getName() + "." + name + "' " +
-                            "must extend Collection");
-                }
-
-                Class foreignEntityType = getGenericParameterClass(field.getGenericType());
-                if (foreignEntityType == null) {
-                    throw new DefinitionException("ManyToOne property '" + getName() + "." + name + "' " +
-                            "unable to resolve generic type parameter.");
-                }
-
-                oneToManyDefinitions.add(new OneToManyDefinition(name, field,
-                        new BasicEntityDefinition(foreignEntityType), foreignFieldName));
-                fieldPropertyDefinitionCount++;
-            }
-
-            if (field.isAnnotationPresent(Id.class)) {
-                // Id set in super()
-                fieldPropertyDefinitionCount++;
-            }
-
-            if (field.isAnnotationPresent(Field.class)) {
-                // Private fields
-                fieldDefinitions.add(new FieldDefinition(name, field, field.isAnnotationPresent(NonNull.class)));
-                fieldPropertyDefinitionCount++;
-            }
-
-            if (fieldPropertyDefinitionCount == 0 && Modifier.isPublic(field.getModifiers())) {
-                // Public fields
-                fieldDefinitions.add(new FieldDefinition(name, field, field.isAnnotationPresent(NonNull.class)));
-                fieldPropertyDefinitionCount++;
-            }
-
-            // Mutually exclude property definitions and ensure property name uniqueness
-            if (fieldPropertyDefinitionCount > 1 || (name != null && propertyNames.contains(name))) {
-                throw new DefinitionException("Property '" + getName() + "." + name + "' has multiple definitions.");
-            } else if (fieldPropertyDefinitionCount > 0) {
-                propertyNames.add(name);
+            // Ensure property name uniqueness
+            if (property.getName() != null && propertyNames.contains(property.getName())) {
+                throw new DefinitionException("Property '" + getName() + "." + property.getName() +
+                        "' has multiple definitions.");
+            } else {
+                propertyNames.add(property.getName());
             }
         }
-
-        // TODO: Inspect methods
     }
 
     public List<FieldDefinition> getFieldDefinitions() {

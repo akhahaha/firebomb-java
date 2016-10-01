@@ -1,19 +1,17 @@
 package firebomb.definition;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import firebomb.annotation.NonNull;
 
 public class FieldDefinition extends PropertyDefinition {
     private boolean isNonNull;
 
-    public FieldDefinition(String name, Field field, boolean isNonNull) {
-        super(name, field);
-        this.isNonNull = isNonNull;
+    public FieldDefinition(PropertyDefinition propertyDefinition) {
+        super(propertyDefinition);
+        initialize();
     }
 
-    public FieldDefinition(String name, Method getMethod, Method setMethod, boolean isNonNull) {
-        super(name, getMethod, setMethod);
-        this.isNonNull = isNonNull;
+    private void initialize() {
+        isNonNull = isAnnotationPresent(NonNull.class);
     }
 
     public boolean isNonNull() {

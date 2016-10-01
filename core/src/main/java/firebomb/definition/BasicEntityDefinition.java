@@ -1,14 +1,20 @@
 package firebomb.definition;
 
 import firebomb.annotation.*;
+import firebomb.beanutils.BeanProperty;
+import firebomb.beanutils.BeanUtils;
 
-import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class BasicEntityDefinition {
     private Class<?> entityType;
     private String name;
     private String reference;
     private IdDefinition idDefinition;
+    private List<PropertyDefinition> properties = new ArrayList<>();
 
     public BasicEntityDefinition(Class<?> entityType) throws DefinitionException {
         this.entityType = entityType;
@@ -30,45 +36,63 @@ public class BasicEntityDefinition {
         }
 
         // Verify default constructor present
-        boolean hasDefaultConstructor = false;
-        for (Constructor constructor : entityType.getConstructors()) {
-            if (constructor.getParameterCount() == 0) {
-                hasDefaultConstructor = true;
-                break;
-            }
-        }
-        if (!hasDefaultConstructor) {
-            throw new DefinitionException("Entity '" + name + "' missing default constructor.");
+        if (!BeanUtils.hasDefaultConstructor(entityType)) {
+            throw new DefinitionException("Entity '" + name + "' requires default constructor.");
         }
 
-        // Inspect fields
+        // Get properties
+        // Get field properties
         for (java.lang.reflect.Field field : entityType.getFields()) {
-            if (field.isAnnotationPresent(Id.class)) {
-                String name = field.getName();
-                if (field.isAnnotationPresent(Property.class)) {
-                    name = field.getAnnotation(Property.class).value();
-                }
+            int modifiers = field.getModifiers();
 
+            // Ignore private, static, and @Ignored fields
+            if (!Modifier.isPublic(modifiers) || Modifier.isStatic(modifiers) ||
+                    field.isAnnotationPresent(Ignore.class)) {
+                continue;
+            }
+
+            properties.add(new PropertyDefinition(name, field));
+        }
+
+        // Get bean properties
+        for (BeanProperty beanProperty : BeanUtils.extractBeanProperties(entityType)) {
+            if (beanProperty.isAnnotationPresent(Ignore.class)) {
+                continue;
+            }
+
+            properties.add(new PropertyDefinition(name, beanProperty));
+        }
+
+        // Find Id
+        for (PropertyDefinition property : getProperties()) {
+            if (property.isAnnotationPresent(Id.class)) {
                 // Verify no duplicate Ids
                 if (this.idDefinition != null) {
-                    throw new DefinitionException("Duplicate Id property found for '" + this.name + "'.");
+                    throw new DefinitionException("Duplicate Id property found for entity '" + this.name + "'.");
                 }
 
-                // Verify is String
-                if (!String.class.isAssignableFrom(field.getType())) {
-                    throw new DefinitionException("Id property '" + getName() + "." + name + "' " +
-                            "must extend String");
-                }
-
-                this.idDefinition = new IdDefinition(name, field, field.isAnnotationPresent(GeneratedValue.class));
+                this.idDefinition = new IdDefinition(property);
             }
         }
 
         if (idDefinition == null) {
-            throw new DefinitionException("Id property required for '" + getName() + "." + name + "'");
+            throw new DefinitionException("Id property required for entity '" + getName() + "'.");
         }
+    }
 
-        // TODO: Inspect methods
+    private void inspectBasicFields() {
+        for (java.lang.reflect.Field field : entityType.getFields()) {
+            int modifiers = field.getModifiers();
+            if (Modifier.isPublic(modifiers) || Modifier.isStatic(modifiers)) {
+                continue;
+            }
+
+            if (field.isAnnotationPresent(Ignore.class)) {
+                continue;
+            }
+
+
+        }
     }
 
     public Class getEntityType() {
@@ -97,5 +121,9 @@ public class BasicEntityDefinition {
 
     public void setId(Object entity, String value) {
         idDefinition.set(entity, value);
+    }
+
+    protected List<PropertyDefinition> getProperties() {
+        return properties;
     }
 }
