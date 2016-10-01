@@ -154,7 +154,7 @@ public class PropertyDefinition {
         boolean oneOf = false;
         boolean hasId = false;
         boolean hasGeneratedValue = false;
-        boolean hasField = false;
+        boolean notField = false;
         boolean hasNonNull = false;
 
         /*
@@ -175,14 +175,19 @@ public class PropertyDefinition {
                 }
 
                 oneOf = true;
+
+                if (annotation instanceof Id ||
+                        annotation instanceof ManyToMany ||
+                        annotation instanceof ManyToOne ||
+                        annotation instanceof OneToMany) {
+                    notField = true;
+                }
             }
 
             if (annotation instanceof Id) {
                 hasId = true;
             } else if (annotation instanceof GeneratedValue) {
                 hasGeneratedValue = true;
-            } else if (annotation instanceof firebomb.annotation.Field) {
-                hasField = true;
             } else if (annotation instanceof NonNull) {
                 hasNonNull = true;
             }
@@ -193,8 +198,8 @@ public class PropertyDefinition {
                     getEntityName() + "." + getName() + "'.");
         }
 
-        if (hasNonNull && (!oneOf || hasField)) {
-            throw new DefinitionException("@GeneratedValue defined found for non-Field property '" +
+        if (hasNonNull && notField) {
+            throw new DefinitionException("@NonNull defined found for non-Field property '" +
                     getEntityName() + "." + getName() + "'.");
         }
     }
