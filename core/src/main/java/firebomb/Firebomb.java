@@ -185,7 +185,7 @@ public class Firebomb {
         for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
             List<Object> foreignEntities = new ArrayList<>();
             for (Data foreignEntityData : entityData.child(oneToManyDef.getName()).getChildren()) {
-                foreignEntityData.getValue(oneToManyDef.getForeignEntityType());
+                foreignEntities.add(foreignEntityData.getValue(oneToManyDef.getForeignEntityType()));
             }
             oneToManyDef.set(entity, foreignEntities);
         }
