@@ -67,41 +67,7 @@ public class Firebomb {
                                 return;
                             }
 
-                            T entity = entityType.newInstance();
-
-                            // Set ID
-                            entityDef.setId(entity, (String) entityData.child(entityDef.getIdName()).getValue());
-
-                            // Set fields
-                            for (FieldDefinition fieldDef : entityDef.getFieldDefinitions()) {
-                                fieldDef.set(entity, entityData.child(fieldDef.getName()).getValue(fieldDef.getType()));
-                                // TODO Verify lists
-                            }
-
-                            // Set relations
-                            // TODO Implement eager loading
-                            for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
-                                List<Object> foreignEntities = new ArrayList<>();
-                                for (Data foreignEntityData : entityData.child(manyToManyDef.getName()).getChildren()) {
-                                    foreignEntities.add(foreignEntityData.getValue(manyToManyDef.getForeignEntityType()));
-                                }
-                                manyToManyDef.set(entity, foreignEntities);
-                            }
-
-                            for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
-                                manyToOneDef.set(entity, entityData.child(manyToOneDef.getName()).getChildren().get(0)
-                                        .getValue(manyToOneDef.getForeignEntityType()));
-                            }
-
-                            for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
-                                List<Object> foreignEntities = new ArrayList<>();
-                                for (Data foreignEntityData : entityData.child(oneToManyDef.getName()).getChildren()) {
-                                    foreignEntityData.getValue(oneToManyDef.getForeignEntityType());
-                                }
-                                oneToManyDef.set(entity, foreignEntities);
-                            }
-
-                            promise.complete(entity);
+                            promise.complete(parseEntity(entityType, entityData));
                         } catch (InstantiationException | IllegalAccessException e) {
                             promise.completeExceptionally(e);
                         }
@@ -198,6 +164,56 @@ public class Firebomb {
                 return null;
             }
         });
+    }
+
+    public static <T> T parseEntity(Class<T> entityType, Data entityData) throws IllegalAccessException,
+            InstantiationException {
+        T entity = entityType.newInstance();
+
+        // Set ID
+        EntityDefinition entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
+        entityDef.setId(entity, (String) entityData.child(entityDef.getIdName()).getValue());
+
+        // Set fields
+        for (FieldDefinition fieldDef : entityDef.getFieldDefinitions()) {
+            fieldDef.set(entity, entityData.child(fieldDef.getName()).getValue(fieldDef.getType()));
+            // TODO Verify lists
+        }
+
+        // Set relations
+        // TODO Implement eager loading
+        for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
+            List<Object> foreignEntities = new ArrayList<>();
+            for (Data foreignEntityData : entityData.child(manyToManyDef.getName()).getChildren()) {
+                foreignEntities.add(foreignEntityData.getValue(manyToManyDef.getForeignEntityType()));
+            }
+            manyToManyDef.set(entity, foreignEntities);
+        }
+
+        for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
+            manyToOneDef.set(entity, entityData.child(manyToOneDef.getName()).getChildren().get(0)
+                    .getValue(manyToOneDef.getForeignEntityType()));
+        }
+
+        for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
+            List<Object> foreignEntities = new ArrayList<>();
+            for (Data foreignEntityData : entityData.child(oneToManyDef.getName()).getChildren()) {
+                foreignEntityData.getValue(oneToManyDef.getForeignEntityType());
+            }
+            oneToManyDef.set(entity, foreignEntities);
+        }
+
+        return entity;
+    }
+
+    public static <T> List<T> parseEntityList(Class<T> entityType, List<Data> dataList)
+            throws InstantiationException, IllegalAccessException {
+        List<T> entityList = new ArrayList<>();
+        for (Data data : dataList) {
+            entityList.add(parseEntity(entityType, data));
+        }
+
+        return entityList;
     }
 
     private Map<String, Object> constructWriteMap(Object entity) {
