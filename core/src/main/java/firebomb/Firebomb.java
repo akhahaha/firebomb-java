@@ -250,7 +250,7 @@ public class Firebomb {
             for (Object foreignEntity : oneToManyDef.get(entity)) {
                 String foreignId = oneToManyDef.getForeignId(foreignEntity);
                 writeMap.put(path(entityPath, oneToManyDef.getName(), foreignId), kvp(foreignIdName, foreignId));
-                writeMap.put(oneToManyDef.constructForeignFieldPath(foreignId), entityId);
+                writeMap.put(path(oneToManyDef.constructForeignFieldPath(foreignId), entityId), kvp(idName, entityId));
             }
         }
 
@@ -302,7 +302,7 @@ public class Firebomb {
                     for (Object foreignEntity : oneToManyDef.get(entity)) {
                         String foreignId = oneToManyDef.getForeignId(foreignEntity);
                         writeMap.put(path(entityPath, oneToManyDef.getName(), foreignId), null);
-                        writeMap.put(oneToManyDef.constructForeignFieldPath(foreignId), null);
+                        writeMap.put(path(oneToManyDef.constructForeignFieldPath(foreignId), id), null);
                     }
                 }
 
