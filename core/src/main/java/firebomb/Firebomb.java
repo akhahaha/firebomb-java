@@ -137,19 +137,6 @@ public class Firebomb {
     }
 
     public CompletableFuture<Void> remove(Class entityType, String id) {
-        CompletableFuture<Void> promise = new CompletableFuture<>();
-
-        // Construct entity definition
-        EntityDefinition entityDef;
-        try {
-            entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
-        } catch (DefinitionException e) {
-            promise.completeExceptionally(e);
-            return promise;
-        }
-
-        final Map<String, Object> writeMap = new HashMap<>();
-
         // Cleanup currently persisted foreign indexes
         // TODO: Delete ManyToOne foreign entities?
         return constructDeleteMap(entityType, id).thenCompose(new Function<Map<String, Object>, CompletionStage<Void>>() {
