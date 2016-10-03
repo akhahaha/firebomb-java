@@ -106,6 +106,10 @@ public class PropertyDefinition {
     }
 
     public void set(Object entity, Object value) {
+        if (getType().equals(boolean.class) && value == null) {
+            return; // Leave as default value
+        }
+
         try {
             if (field != null) {
                 field.set(entity, value);
