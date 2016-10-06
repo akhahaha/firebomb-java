@@ -25,6 +25,7 @@ public class Firebomb {
         return ourInstance;
     }
 
+    private static final EntityDefinitionManager entityDefinitionManager = new EntityDefinitionManager();
     private DatabaseManager connection;
     private String rootPath = ""; // Default Firebase root
 
@@ -50,7 +51,7 @@ public class Firebomb {
 
         final EntityDefinition entityDef;
         try {
-            entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
+            entityDef = entityDefinitionManager.getDefinition(entityType);
         } catch (Exception e) {
             promise.completeExceptionally(e);
             return promise;
@@ -91,7 +92,7 @@ public class Firebomb {
         Class entityType = entity.getClass();
         EntityDefinition entityDef;
         try {
-            entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
+            entityDef = entityDefinitionManager.getDefinition(entityType);
         } catch (DefinitionException e) {
             promise.completeExceptionally(e);
             return promise;
@@ -158,7 +159,7 @@ public class Firebomb {
         T entity = entityType.newInstance();
 
         // Set ID
-        EntityDefinition entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
+        EntityDefinition entityDef = entityDefinitionManager.getDefinition(entityType);
         entityDef.setId(entity, (String) entityData.child(entityDef.getIdName()).getValue());
 
         // Set fields
@@ -207,7 +208,7 @@ public class Firebomb {
         Map<String, Object> writeMap = new HashMap<>();
 
         Class entityType = entity.getClass();
-        EntityDefinition entityDef = EntityDefinitionManager.getInstance().getDefinition(entityType);
+        EntityDefinition entityDef = entityDefinitionManager.getDefinition(entityType);
 
         // Add Id
         String idName = entityDef.getIdName();
@@ -258,7 +259,7 @@ public class Firebomb {
     }
 
     private CompletableFuture<Map<String, Object>> constructDeleteMap(Class entityType, final String id) {
-        final EntityDefinition entityDefinition = EntityDefinitionManager.getInstance().getDefinition(entityType);
+        final EntityDefinition entityDefinition = entityDefinitionManager.getDefinition(entityType);
         final CompletableFuture<Map<String, Object>> promise = new CompletableFuture<>();
         final Map<String, Object> writeMap = new HashMap<>();
 

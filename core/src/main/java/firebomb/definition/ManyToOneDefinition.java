@@ -17,7 +17,7 @@ public class ManyToOneDefinition extends RelationDefinition {
                     "'missing ManyToOne annotation.");
         }
 
-        foreignEntityDefinition = EntityDefinitionManager.getInstance().getBasicDefinition(getType());
+        foreignEntityDefinition = new BasicEntityDefinition(getType());
         foreignIndexName = getAnnotation(ManyToOne.class).foreignIndexName();
     }
 

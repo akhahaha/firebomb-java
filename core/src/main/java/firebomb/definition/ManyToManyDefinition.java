@@ -33,7 +33,7 @@ public class ManyToManyDefinition extends RelationDefinition {
                     getEntityName() + "." + getName() + "'.");
         }
 
-        foreignEntityDefinition = EntityDefinitionManager.getInstance().getBasicDefinition(genericClass);
+        foreignEntityDefinition = new BasicEntityDefinition(genericClass);
         foreignIndexName = getAnnotation(ManyToMany.class).foreignIndexName();
     }
 

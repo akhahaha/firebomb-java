@@ -4,12 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class EntityDefinitionManager {
-    private static EntityDefinitionManager ourInstance = new EntityDefinitionManager();
-
-    public static EntityDefinitionManager getInstance() {
-        return ourInstance;
-    }
-
     private Map<Class, BasicEntityDefinition> basicDefinitionMap = new HashMap<>();
     private Map<Class, EntityDefinition> definitionMap = new HashMap<>();
 

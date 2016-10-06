@@ -33,7 +33,7 @@ public class OneToManyDefinition extends RelationDefinition {
                     getEntityName() + "." + getName() + "'.");
         }
 
-        foreignEntityDefinition = EntityDefinitionManager.getInstance().getBasicDefinition(genericClass);
+        foreignEntityDefinition = new BasicEntityDefinition(genericClass);
         foreignFieldName = getAnnotation(OneToMany.class).foreignFieldName();
     }
 
