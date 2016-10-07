@@ -57,8 +57,8 @@ public class Firebomb {
             return promise;
         }
 
-        String path = path(entityDef.getReference(), id);
-        connection.read(path(rootPath, path)).thenAccept(
+        String path = StringUtils.path(entityDef.getReference(), id);
+        connection.read(StringUtils.path(rootPath, path)).thenAccept(
                 new Consumer<Data>() {
                     @Override
                     public void accept(Data entityData) {
@@ -213,8 +213,8 @@ public class Firebomb {
         // Add Id
         String idName = entityDef.getIdName();
         String entityId = entityDef.getId(entity);
-        String entityPath = path(entityDef.getReference(), entityId);
-        writeMap.put(path(entityPath, entityDef.getIdName()), entityId);
+        String entityPath = StringUtils.path(entityDef.getReference(), entityId);
+        writeMap.put(StringUtils.path(entityPath, entityDef.getIdName()), entityId);
 
         // Add fields
         for (FieldDefinition fieldDef : entityDef.getFieldDefinitions()) {
@@ -223,7 +223,7 @@ public class Firebomb {
                 throw new FirebombException("Non-null field '" + entityDef.getName() + "." + fieldDef.getName() +
                         "' cannot be null.");
             }
-            writeMap.put(path(entityPath, fieldDef.getName()), fieldValue);
+            writeMap.put(StringUtils.path(entityPath, fieldDef.getName()), fieldValue);
         }
 
         // Add ManyToMany
@@ -231,8 +231,8 @@ public class Firebomb {
             String foreignIdName = manyToManyDef.getForeignIdName();
             for (Object foreignEntity : manyToManyDef.get(entity)) {
                 String foreignId = manyToManyDef.getForeignId(foreignEntity);
-                writeMap.put(path(entityPath, manyToManyDef.getName(), foreignId), kvp(foreignIdName, foreignId));
-                writeMap.put(path(manyToManyDef.constructForeignIndexPath(foreignId), entityId), kvp(idName, entityId));
+                writeMap.put(StringUtils.path(entityPath, manyToManyDef.getName(), foreignId), kvp(foreignIdName, foreignId));
+                writeMap.put(StringUtils.path(manyToManyDef.constructForeignIndexPath(foreignId), entityId), kvp(idName, entityId));
             }
         }
 
@@ -241,8 +241,8 @@ public class Firebomb {
             Object foreignEntity = manyToOneDef.get(entity);
             String foreignIdName = manyToOneDef.getForeignIdName();
             String foreignId = manyToOneDef.getForeignId(foreignEntity);
-            writeMap.put(path(entityPath, manyToOneDef.getName(), foreignId), kvp(foreignIdName, foreignId));
-            writeMap.put(path(manyToOneDef.constructForeignIndexPath(foreignId), entityId), kvp(idName, entityId));
+            writeMap.put(StringUtils.path(entityPath, manyToOneDef.getName(), foreignId), kvp(foreignIdName, foreignId));
+            writeMap.put(StringUtils.path(manyToOneDef.constructForeignIndexPath(foreignId), entityId), kvp(idName, entityId));
         }
 
         // Add OneToMany
@@ -250,8 +250,8 @@ public class Firebomb {
             String foreignIdName = oneToManyDef.getForeignIdName();
             for (Object foreignEntity : oneToManyDef.get(entity)) {
                 String foreignId = oneToManyDef.getForeignId(foreignEntity);
-                writeMap.put(path(entityPath, oneToManyDef.getName(), foreignId), kvp(foreignIdName, foreignId));
-                writeMap.put(path(oneToManyDef.constructForeignFieldPath(foreignId), entityId), kvp(idName, entityId));
+                writeMap.put(StringUtils.path(entityPath, oneToManyDef.getName(), foreignId), kvp(foreignIdName, foreignId));
+                writeMap.put(StringUtils.path(oneToManyDef.constructForeignFieldPath(foreignId), entityId), kvp(idName, entityId));
             }
         }
 
@@ -271,22 +271,22 @@ public class Firebomb {
                     return;
                 }
 
-                String entityPath = path(entityDefinition.getReference(), id);
+                String entityPath = StringUtils.path(entityDefinition.getReference(), id);
 
                 // Add Id
-                writeMap.put(path(entityPath, entityDefinition.getIdName()), null);
+                writeMap.put(StringUtils.path(entityPath, entityDefinition.getIdName()), null);
 
                 // Add fields
                 for (FieldDefinition fieldDef : entityDefinition.getFieldDefinitions()) {
-                    writeMap.put(path(entityPath, fieldDef.getName()), null);
+                    writeMap.put(StringUtils.path(entityPath, fieldDef.getName()), null);
                 }
 
                 // Add ManyToMany
                 for (ManyToManyDefinition manyToManyDef : entityDefinition.getManyToManyDefinitions()) {
                     for (Object foreignEntity : manyToManyDef.get(entity)) {
                         String foreignId = manyToManyDef.getForeignId(foreignEntity);
-                        writeMap.put(path(entityPath, manyToManyDef.getName(), foreignId), null);
-                        writeMap.put(path(manyToManyDef.constructForeignIndexPath(foreignId), id), null);
+                        writeMap.put(StringUtils.path(entityPath, manyToManyDef.getName(), foreignId), null);
+                        writeMap.put(StringUtils.path(manyToManyDef.constructForeignIndexPath(foreignId), id), null);
                     }
                 }
 
@@ -294,16 +294,16 @@ public class Firebomb {
                 for (ManyToOneDefinition manyToOneDef : entityDefinition.getManyToOneDefinitions()) {
                     Object foreignEntity = manyToOneDef.get(entity);
                     String foreignId = manyToOneDef.getForeignId(foreignEntity);
-                    writeMap.put(path(entityPath, manyToOneDef.getName(), foreignId), null);
-                    writeMap.put(path(manyToOneDef.constructForeignIndexPath(foreignId), id), null);
+                    writeMap.put(StringUtils.path(entityPath, manyToOneDef.getName(), foreignId), null);
+                    writeMap.put(StringUtils.path(manyToOneDef.constructForeignIndexPath(foreignId), id), null);
                 }
 
                 // Add OneToMany
                 for (OneToManyDefinition oneToManyDef : entityDefinition.getOneToManyDefinitions()) {
                     for (Object foreignEntity : oneToManyDef.get(entity)) {
                         String foreignId = oneToManyDef.getForeignId(foreignEntity);
-                        writeMap.put(path(entityPath, oneToManyDef.getName(), foreignId), null);
-                        writeMap.put(path(oneToManyDef.constructForeignFieldPath(foreignId), id), null);
+                        writeMap.put(StringUtils.path(entityPath, oneToManyDef.getName(), foreignId), null);
+                        writeMap.put(StringUtils.path(oneToManyDef.constructForeignFieldPath(foreignId), id), null);
                     }
                 }
 
@@ -312,10 +312,6 @@ public class Firebomb {
         });
 
         return promise;
-    }
-
-    private static String path(String... nodes) {
-        return StringUtils.join("/", nodes);
     }
 
     private static Map<String, String> kvp(String key, String value) {

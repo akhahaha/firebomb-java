@@ -12,4 +12,8 @@ public class StringUtils {
 
         return builder.toString();
     }
+
+    public static String path(String... nodes) {
+        return join("/", nodes);
+    }
 }

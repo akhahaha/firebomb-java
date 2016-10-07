@@ -1,6 +1,7 @@
 package firebomb.definition;
 
 import firebomb.annotation.OneToMany;
+import firebomb.util.StringUtils;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -53,7 +54,7 @@ public class OneToManyDefinition extends RelationDefinition {
     }
 
     public String constructForeignFieldPath(String foreignEntityId) {
-        return path(getForeignEntityDefinition().getReference(), foreignEntityId, foreignFieldName);
+        return StringUtils.path(getForeignEntityDefinition().getReference(), foreignEntityId, foreignFieldName);
     }
 
     private Class getGenericParameterClass(Type type) {

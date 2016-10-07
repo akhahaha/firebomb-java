@@ -2,7 +2,6 @@ package firebomb.definition;
 
 import firebomb.annotation.*;
 import firebomb.beanutils.BeanProperty;
-import firebomb.util.StringUtils;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -120,10 +119,6 @@ public class PropertyDefinition {
             e.printStackTrace();
             throw new DefinitionException(e);
         }
-    }
-
-    protected static String path(String... nodes) {
-        return StringUtils.join("/", nodes);
     }
 
     public List<Annotation> getAnnotations() {

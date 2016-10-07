@@ -1,6 +1,7 @@
 package firebomb.definition;
 
 import firebomb.annotation.ManyToOne;
+import firebomb.util.StringUtils;
 
 public class ManyToOneDefinition extends RelationDefinition {
     private BasicEntityDefinition foreignEntityDefinition;
@@ -31,6 +32,6 @@ public class ManyToOneDefinition extends RelationDefinition {
     }
 
     public String constructForeignIndexPath(String foreignEntityId) {
-        return path(getForeignEntityDefinition().getReference(), foreignEntityId, foreignIndexName);
+        return StringUtils.path(getForeignEntityDefinition().getReference(), foreignEntityId, foreignIndexName);
     }
 }

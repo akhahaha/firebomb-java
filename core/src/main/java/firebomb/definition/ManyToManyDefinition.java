@@ -1,6 +1,7 @@
 package firebomb.definition;
 
 import firebomb.annotation.ManyToMany;
+import firebomb.util.StringUtils;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -53,7 +54,7 @@ public class ManyToManyDefinition extends RelationDefinition {
     }
 
     public String constructForeignIndexPath(String foreignEntityId) {
-        return path(getForeignEntityDefinition().getReference(), foreignEntityId, foreignIndexName);
+        return StringUtils.path(getForeignEntityDefinition().getReference(), foreignEntityId, foreignIndexName);
     }
 
     private Class getGenericParameterClass(Type type) {
