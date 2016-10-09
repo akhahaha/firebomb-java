@@ -2,45 +2,24 @@ package firebomb.database;
 
 import com.google.firebase.database.DataSnapshot;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Firebase Java server {@link DataSnapshot} wrapper
- */
-public class FirebaseData implements Data {
+public class FirebaseData extends Data {
     private DataSnapshot snapshot;
 
     public FirebaseData(DataSnapshot snapshot) {
+        super(snapshot.getKey());
         this.snapshot = snapshot;
-    }
 
-    @Override
-    public String getKey() {
-        return snapshot.getKey();
-    }
+        for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
+            putChild(new FirebaseData(dataSnapshot));
+        }
 
-    @Override
-    public Object getValue() {
-        return snapshot.getValue();
+        if (isLeaf()) {
+            setValue(snapshot.getValue());
+        }
     }
 
     @Override
     public <T> T getValue(Class<T> valueType) {
         return snapshot.getValue(valueType);
-    }
-
-    @Override
-    public Data child(String path) {
-        return new FirebaseData(snapshot.child(path));
-    }
-
-    @Override
-    public List<Data> getChildren() {
-        List<Data> children = new ArrayList<>();
-        for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
-            children.add(new FirebaseData(dataSnapshot));
-        }
-        return children;
     }
 }

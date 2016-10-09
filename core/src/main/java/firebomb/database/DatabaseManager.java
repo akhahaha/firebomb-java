@@ -12,5 +12,5 @@ public interface DatabaseManager {
 
     String generateId(String path);
 
-    CompletableFuture<Void> write(String path, Map<String, Object> writeMap);
+    CompletableFuture<Void> write(String path, Data data);
 }

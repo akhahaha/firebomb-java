@@ -3,8 +3,6 @@ package firebomb.database;
 import com.google.firebase.database.*;
 import java8.util.concurrent.CompletableFuture;
 
-import java.util.Map;
-
 /**
  * Firebase Java server {@link FirebaseDatabase} connection wrapper
  */
@@ -37,9 +35,9 @@ public class FirebaseManager implements DatabaseManager {
         return database.getReference(path).push().getKey();
     }
 
-    public CompletableFuture<Void> write(String path, Map<String, Object> writeMap) {
+    public CompletableFuture<Void> write(String path, Data data) {
         final CompletableFuture<Void> promise = new CompletableFuture<>();
-        database.getReference(path).updateChildren(writeMap, new DatabaseReference.CompletionListener() {
+        database.getReference(path).updateChildren(data.toChildMap(), new DatabaseReference.CompletionListener() {
             @Override
             public void onComplete(DatabaseError databaseError, DatabaseReference databaseReference) {
                 if (databaseError == null) {

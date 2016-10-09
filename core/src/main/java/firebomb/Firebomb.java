@@ -2,16 +2,16 @@ package firebomb;
 
 import firebomb.database.Data;
 import firebomb.database.DatabaseManager;
-import firebomb.definition.*;
+import firebomb.definition.DefinitionException;
+import firebomb.definition.EntityDefinition;
+import firebomb.definition.EntityDefinitionManager;
 import firebomb.util.StringUtils;
 import java8.util.concurrent.CompletableFuture;
 import java8.util.concurrent.CompletionStage;
 import java8.util.function.Consumer;
 import java8.util.function.Function;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Firebomb {
@@ -25,7 +25,8 @@ public class Firebomb {
         return ourInstance;
     }
 
-    private static final EntityDefinitionManager entityDefinitionManager = new EntityDefinitionManager();
+    private EntityDefinitionManager entityDefinitionManager = new EntityDefinitionManager();
+    private EntityParser entityParser = new DefaultEntityParser();
     private DatabaseManager connection;
     private String rootPath = ""; // Default Firebase root
 
@@ -46,6 +47,10 @@ public class Firebomb {
         this.rootPath = rootPath;
     }
 
+    public void setEntityParser(EntityParser entityParser) {
+        this.entityParser = entityParser;
+    }
+
     public <T> CompletableFuture<T> find(final Class<T> entityType, String id) {
         final CompletableFuture<T> promise = new CompletableFuture<>();
 
@@ -58,23 +63,14 @@ public class Firebomb {
         }
 
         String path = StringUtils.path(entityDef.getReference(), id);
-        connection.read(StringUtils.path(rootPath, path)).thenAccept(
-                new Consumer<Data>() {
+        connection.read(StringUtils.path(rootPath, path))
+                .thenAccept(new Consumer<Data>() {
                     @Override
                     public void accept(Data entityData) {
-                        try {
-                            if (entityData.getValue() == null) {
-                                promise.complete(null);
-                                return;
-                            }
-
-                            promise.complete(parseEntity(entityType, entityData));
-                        } catch (InstantiationException | IllegalAccessException e) {
-                            promise.completeExceptionally(e);
-                        }
+                        promise.complete(entityParser.deserialize(entityType, entityData));
                     }
-                }).exceptionally(
-                new Function<Throwable, Void>() {
+                })
+                .exceptionally(new Function<Throwable, Void>() {
                     @Override
                     public Void apply(Throwable throwable) {
                         promise.completeExceptionally(throwable);
@@ -89,7 +85,7 @@ public class Firebomb {
         CompletableFuture<T> promise = new CompletableFuture<>();
 
         // Construct entity definition
-        Class entityType = entity.getClass();
+        Class<T> entityType = (Class<T>) entity.getClass();
         EntityDefinition entityDef;
         try {
             entityDef = entityDefinitionManager.getDefinition(entityType);
@@ -97,8 +93,6 @@ public class Firebomb {
             promise.completeExceptionally(e);
             return promise;
         }
-
-        final Map<String, Object> writeMap = new HashMap<>();
 
         // Get Id if necessary
         String idName = entityDef.getIdName();
@@ -110,22 +104,21 @@ public class Firebomb {
         } else if (entityId == null) {
             entityId = connection.generateId(entityDef.getReference());
             entityDef.setId(entity, entityId);
-            writeMap.putAll(constructWriteMap(entity));
-            return connection.write(rootPath, writeMap).thenApply(new Function<Void, T>() {
+            return connection.write(rootPath, entityParser.serialize(entity)).thenApply(new Function<Void, T>() {
                 @Override
                 public T apply(Void aVoid) {
                     return entity;
                 }
             });
         } else {
-            return constructDeleteMap(entityType, entityId)
-                    .thenCompose(
-                            new Function<Map<String, Object>, CompletionStage<Void>>() {
+            return find(entityType, entityId)
+                    .thenCompose(new Function<T, CompletionStage<Void>>() {
                                 @Override
-                                public CompletionStage<Void> apply(Map<String, Object> stringObjectMap) {
-                                    writeMap.putAll(stringObjectMap);
-                                    writeMap.putAll(constructWriteMap(entity));
-                                    return connection.write(rootPath, writeMap);
+                                public CompletionStage<Void> apply(T existingEntity) {
+                                    Data writeData = new Data();
+                                    writeData.setChildMap(entityParser.serialize(existingEntity).toChildDeleteMap());
+                                    writeData.setChildMap(entityParser.serialize(entity).toChildMap());
+                                    return connection.write(rootPath, writeData);
                                 }
                             })
                     .thenApply(new Function<Void, T>() {
@@ -137,186 +130,16 @@ public class Firebomb {
         }
     }
 
-    public CompletableFuture<Void> remove(Class entityType, String id) {
+    public <T> CompletableFuture<Void> remove(Class<T> entityType, String id) {
         // Cleanup currently persisted foreign indexes
         // TODO: Delete ManyToOne foreign entities?
-        return constructDeleteMap(entityType, id).thenCompose(new Function<Map<String, Object>, CompletionStage<Void>>() {
+        return find(entityType, id).thenCompose(new Function<T, CompletionStage<Void>>() {
             @Override
-            public CompletionStage<Void> apply(Map<String, Object> stringObjectMap) {
-                return connection.write(rootPath, stringObjectMap);
-            }
-        }).exceptionally(new Function<Throwable, Void>() {
-            @Override
-            public Void apply(Throwable throwable) {
-                throwable.printStackTrace();
-                return null;
+            public CompletionStage<Void> apply(T entity) {
+                Data deleteData = new Data();
+                deleteData.setChildMap(entityParser.serialize(entity).toChildDeleteMap());
+                return connection.write(rootPath, deleteData);
             }
         });
-    }
-
-    public static <T> T parseEntity(Class<T> entityType, Data entityData) throws IllegalAccessException,
-            InstantiationException {
-        T entity = entityType.newInstance();
-
-        // Set ID
-        EntityDefinition entityDef = entityDefinitionManager.getDefinition(entityType);
-        entityDef.setId(entity, (String) entityData.child(entityDef.getIdName()).getValue());
-
-        // Set fields
-        for (FieldDefinition fieldDef : entityDef.getFieldDefinitions()) {
-            fieldDef.set(entity, entityData.child(fieldDef.getName()).getValue(fieldDef.getType()));
-            // TODO Verify lists
-        }
-
-        // Set relations
-        // TODO Implement eager loading
-        for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
-            List<Object> foreignEntities = new ArrayList<>();
-            for (Data foreignEntityData : entityData.child(manyToManyDef.getName()).getChildren()) {
-                foreignEntities.add(foreignEntityData.getValue(manyToManyDef.getForeignEntityType()));
-            }
-            manyToManyDef.set(entity, foreignEntities);
-        }
-
-        for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
-            manyToOneDef.set(entity, entityData.child(manyToOneDef.getName()).getChildren().get(0)
-                    .getValue(manyToOneDef.getForeignEntityType()));
-        }
-
-        for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
-            List<Object> foreignEntities = new ArrayList<>();
-            for (Data foreignEntityData : entityData.child(oneToManyDef.getName()).getChildren()) {
-                foreignEntities.add(foreignEntityData.getValue(oneToManyDef.getForeignEntityType()));
-            }
-            oneToManyDef.set(entity, foreignEntities);
-        }
-
-        return entity;
-    }
-
-    public static <T> List<T> parseEntityList(Class<T> entityType, List<Data> dataList)
-            throws InstantiationException, IllegalAccessException {
-        List<T> entityList = new ArrayList<>();
-        for (Data data : dataList) {
-            entityList.add(parseEntity(entityType, data));
-        }
-
-        return entityList;
-    }
-
-    private Map<String, Object> constructWriteMap(Object entity) {
-        Map<String, Object> writeMap = new HashMap<>();
-
-        Class entityType = entity.getClass();
-        EntityDefinition entityDef = entityDefinitionManager.getDefinition(entityType);
-
-        // Add Id
-        String idName = entityDef.getIdName();
-        String entityId = entityDef.getId(entity);
-        String entityPath = StringUtils.path(entityDef.getReference(), entityId);
-        writeMap.put(StringUtils.path(entityPath, entityDef.getIdName()), entityId);
-
-        // Add fields
-        for (FieldDefinition fieldDef : entityDef.getFieldDefinitions()) {
-            Object fieldValue = fieldDef.get(entity);
-            if (fieldDef.isNonNull() && fieldValue == null) {
-                throw new FirebombException("Non-null field '" + entityDef.getName() + "." + fieldDef.getName() +
-                        "' cannot be null.");
-            }
-            writeMap.put(StringUtils.path(entityPath, fieldDef.getName()), fieldValue);
-        }
-
-        // Add ManyToMany
-        for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
-            String foreignIdName = manyToManyDef.getForeignIdName();
-            for (Object foreignEntity : manyToManyDef.get(entity)) {
-                String foreignId = manyToManyDef.getForeignId(foreignEntity);
-                writeMap.put(StringUtils.path(entityPath, manyToManyDef.getName(), foreignId), kvp(foreignIdName, foreignId));
-                writeMap.put(StringUtils.path(manyToManyDef.constructForeignIndexPath(foreignId), entityId), kvp(idName, entityId));
-            }
-        }
-
-        // Add ManyToOne
-        for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
-            Object foreignEntity = manyToOneDef.get(entity);
-            String foreignIdName = manyToOneDef.getForeignIdName();
-            String foreignId = manyToOneDef.getForeignId(foreignEntity);
-            writeMap.put(StringUtils.path(entityPath, manyToOneDef.getName(), foreignId), kvp(foreignIdName, foreignId));
-            writeMap.put(StringUtils.path(manyToOneDef.constructForeignIndexPath(foreignId), entityId), kvp(idName, entityId));
-        }
-
-        // Add OneToMany
-        for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
-            String foreignIdName = oneToManyDef.getForeignIdName();
-            for (Object foreignEntity : oneToManyDef.get(entity)) {
-                String foreignId = oneToManyDef.getForeignId(foreignEntity);
-                writeMap.put(StringUtils.path(entityPath, oneToManyDef.getName(), foreignId), kvp(foreignIdName, foreignId));
-                writeMap.put(StringUtils.path(oneToManyDef.constructForeignFieldPath(foreignId), entityId), kvp(idName, entityId));
-            }
-        }
-
-        return writeMap;
-    }
-
-    private CompletableFuture<Map<String, Object>> constructDeleteMap(Class entityType, final String id) {
-        final EntityDefinition entityDefinition = entityDefinitionManager.getDefinition(entityType);
-        final CompletableFuture<Map<String, Object>> promise = new CompletableFuture<>();
-        final Map<String, Object> writeMap = new HashMap<>();
-
-        find(entityType, id).thenAccept(new Consumer() {
-            @Override
-            public void accept(Object entity) {
-                if (entity == null) {
-                    promise.complete(writeMap);
-                    return;
-                }
-
-                String entityPath = StringUtils.path(entityDefinition.getReference(), id);
-
-                // Add Id
-                writeMap.put(StringUtils.path(entityPath, entityDefinition.getIdName()), null);
-
-                // Add fields
-                for (FieldDefinition fieldDef : entityDefinition.getFieldDefinitions()) {
-                    writeMap.put(StringUtils.path(entityPath, fieldDef.getName()), null);
-                }
-
-                // Add ManyToMany
-                for (ManyToManyDefinition manyToManyDef : entityDefinition.getManyToManyDefinitions()) {
-                    for (Object foreignEntity : manyToManyDef.get(entity)) {
-                        String foreignId = manyToManyDef.getForeignId(foreignEntity);
-                        writeMap.put(StringUtils.path(entityPath, manyToManyDef.getName(), foreignId), null);
-                        writeMap.put(StringUtils.path(manyToManyDef.constructForeignIndexPath(foreignId), id), null);
-                    }
-                }
-
-                // Add ManyToOne
-                for (ManyToOneDefinition manyToOneDef : entityDefinition.getManyToOneDefinitions()) {
-                    Object foreignEntity = manyToOneDef.get(entity);
-                    String foreignId = manyToOneDef.getForeignId(foreignEntity);
-                    writeMap.put(StringUtils.path(entityPath, manyToOneDef.getName(), foreignId), null);
-                    writeMap.put(StringUtils.path(manyToOneDef.constructForeignIndexPath(foreignId), id), null);
-                }
-
-                // Add OneToMany
-                for (OneToManyDefinition oneToManyDef : entityDefinition.getOneToManyDefinitions()) {
-                    for (Object foreignEntity : oneToManyDef.get(entity)) {
-                        String foreignId = oneToManyDef.getForeignId(foreignEntity);
-                        writeMap.put(StringUtils.path(entityPath, oneToManyDef.getName(), foreignId), null);
-                        writeMap.put(StringUtils.path(oneToManyDef.constructForeignFieldPath(foreignId), id), null);
-                    }
-                }
-
-                promise.complete(writeMap);
-            }
-        });
-
-        return promise;
-    }
-
-    private static Map<String, String> kvp(String key, String value) {
-        Map<String, String> kvp = new HashMap<>();
-        kvp.put(key, value);
-        return kvp;
     }
 }
