@@ -1,5 +1,6 @@
 package firebomb;
 
+import firebomb.criteria.Criteria;
 import firebomb.database.Data;
 import firebomb.database.DatabaseManager;
 import firebomb.definition.DefinitionException;
@@ -11,7 +12,9 @@ import java8.util.concurrent.CompletionStage;
 import java8.util.function.Consumer;
 import java8.util.function.Function;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Firebomb {
@@ -81,6 +84,44 @@ public class Firebomb {
         return promise;
     }
 
+    public <T> CompletableFuture<List<T>> query(final Criteria<T> criteria) {
+        final CompletableFuture<List<T>> promise = new CompletableFuture<>();
+
+        final Class<T> entityType = criteria.getEntityType();
+        EntityDefinition entityDef;
+        try {
+            entityDef = entityDefinitionManager.getDefinition(entityType);
+        } catch (DefinitionException e) {
+            promise.completeExceptionally(e);
+            return promise;
+        }
+
+        connection.query(StringUtils.path(rootPath, entityDef.getReference()), criteria)
+                .thenAccept(new Consumer<Data>() {
+                    @Override
+                    public void accept(Data data) {
+                        List<T> results = new ArrayList<T>();
+                        for (Data entityData : data.getChildren()) {
+                            T entity = entityParser.deserialize(entityType, entityData);
+                            // Filter
+                            if (criteria.match(entity)) {
+                                results.add(entity);
+                            }
+                        }
+                        promise.complete(results);
+                    }
+                })
+                .exceptionally(new Function<Throwable, Void>() {
+                    @Override
+                    public Void apply(Throwable throwable) {
+                        promise.completeExceptionally(throwable);
+                        return null;
+                    }
+                });
+
+        return promise;
+    }
+
     public <T> CompletableFuture<T> persist(final T entity) {
         CompletableFuture<T> promise = new CompletableFuture<>();
 
@@ -113,14 +154,14 @@ public class Firebomb {
         } else {
             return find(entityType, entityId)
                     .thenCompose(new Function<T, CompletionStage<Void>>() {
-                                @Override
-                                public CompletionStage<Void> apply(T existingEntity) {
-                                    Data writeData = new Data();
-                                    writeData.setChildMap(entityParser.serialize(existingEntity).toChildDeleteMap());
-                                    writeData.setChildMap(entityParser.serialize(entity).toChildMap());
-                                    return connection.write(rootPath, writeData);
-                                }
-                            })
+                        @Override
+                        public CompletionStage<Void> apply(T existingEntity) {
+                            Data writeData = new Data();
+                            writeData.setChildMap(entityParser.serialize(existingEntity).toChildDeleteMap());
+                            writeData.setChildMap(entityParser.serialize(entity).toChildMap());
+                            return connection.write(rootPath, writeData);
+                        }
+                    })
                     .thenApply(new Function<Void, T>() {
                         @Override
                         public T apply(Void aVoid) {

@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class BeanUtilsTest {
     @Test
@@ -20,8 +22,8 @@ public class BeanUtilsTest {
     @Test
     public void extractBeanProperties() throws Exception {
         List<BeanProperty> properties = BeanUtils.extractBeanProperties(TestBean.class);
-        assertEquals(properties.size(), 1);
-        assertEquals(properties.get(0).getName(), "property");
+        assertEquals(1, properties.size());
+        assertEquals("property", properties.get(0).getName());
     }
 
     @Test
@@ -33,9 +35,9 @@ public class BeanUtilsTest {
             }
         }
 
-        assertEquals(methodNames.size(), 2);
-        assert methodNames.contains("getProperty");
-        assert methodNames.contains("isBoolProperty");
+        assertEquals(2, methodNames.size());
+        assertTrue(methodNames.contains("getProperty"));
+        assertTrue(methodNames.contains("isBoolProperty"));
     }
 
     @Test
@@ -47,36 +49,36 @@ public class BeanUtilsTest {
             }
         }
 
-        assertEquals(methodNames.size(), 2);
-        assert methodNames.contains("setProperty");
-        assert methodNames.contains("setProperty1");
+        assertEquals(2, methodNames.size());
+        assertTrue(methodNames.contains("setProperty"));
+        assertTrue(methodNames.contains("setProperty1"));
     }
 
     @Test
     public void extractPropertyNameValid() throws Exception {
-        assertEquals(BeanUtils.extractPropertyName("getProperty"), "property");
-        assertEquals(BeanUtils.extractPropertyName("getProperty1"), "property1");
-        assertEquals(BeanUtils.extractPropertyName("isProperty"), "property");
-        assertEquals(BeanUtils.extractPropertyName("isProperty1"), "property1");
-        assertEquals(BeanUtils.extractPropertyName("setProperty"), "property");
-        assertEquals(BeanUtils.extractPropertyName("setProperty1"), "property1");
+        assertEquals("property", BeanUtils.extractPropertyName("getProperty"));
+        assertEquals("property1", BeanUtils.extractPropertyName("getProperty1"));
+        assertEquals("property", BeanUtils.extractPropertyName("isProperty"));
+        assertEquals("property1", BeanUtils.extractPropertyName("isProperty1"));
+        assertEquals("property", BeanUtils.extractPropertyName("setProperty"));
+        assertEquals("property1", BeanUtils.extractPropertyName("setProperty1"));
     }
 
     @Test
     public void extractPropertyNameInvalid() throws Exception {
-        assertEquals(BeanUtils.extractPropertyName("abcd"), null);
-        assertEquals(BeanUtils.extractPropertyName("get"), null);
-        assertEquals(BeanUtils.extractPropertyName("getproperty"), null);
-        assertEquals(BeanUtils.extractPropertyName("GetProperty"), null);
-        assertEquals(BeanUtils.extractPropertyName("get1Property"), null);
-        assertEquals(BeanUtils.extractPropertyName("is"), null);
-        assertEquals(BeanUtils.extractPropertyName("isproperty"), null);
-        assertEquals(BeanUtils.extractPropertyName("IsProperty"), null);
-        assertEquals(BeanUtils.extractPropertyName("is1Property"), null);
-        assertEquals(BeanUtils.extractPropertyName("set"), null);
-        assertEquals(BeanUtils.extractPropertyName("setproperty"), null);
-        assertEquals(BeanUtils.extractPropertyName("SetProperty"), null);
-        assertEquals(BeanUtils.extractPropertyName("set1Property"), null);
+        assertNull(BeanUtils.extractPropertyName("abcd"));
+        assertNull(BeanUtils.extractPropertyName("get"));
+        assertNull(BeanUtils.extractPropertyName("getproperty"));
+        assertNull(BeanUtils.extractPropertyName("GetProperty"));
+        assertNull(BeanUtils.extractPropertyName("get1Property"));
+        assertNull(BeanUtils.extractPropertyName("is"));
+        assertNull(BeanUtils.extractPropertyName("isproperty"));
+        assertNull(BeanUtils.extractPropertyName("IsProperty"));
+        assertNull(BeanUtils.extractPropertyName("is1Property"));
+        assertNull(BeanUtils.extractPropertyName("set"));
+        assertNull(BeanUtils.extractPropertyName("setproperty"));
+        assertNull(BeanUtils.extractPropertyName("SetProperty"));
+        assertNull(BeanUtils.extractPropertyName("set1Property"));
     }
 
     private static class TestBean {
