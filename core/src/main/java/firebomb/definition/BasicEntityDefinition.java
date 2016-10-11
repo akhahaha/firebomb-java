@@ -6,7 +6,9 @@ import firebomb.beanutils.BeanUtils;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class BasicEntityDefinition {
@@ -14,7 +16,8 @@ public class BasicEntityDefinition {
     private String name;
     private String reference;
     private IdDefinition idDefinition;
-    private List<PropertyDefinition> properties = new ArrayList<>();
+    private List<FieldDefinition> fieldDefinitions = new ArrayList<>();
+    private Map<String, PropertyDefinition> properties = new HashMap<>();
 
     public BasicEntityDefinition(Class<?> entityType) throws DefinitionException {
         this.entityType = entityType;
@@ -51,7 +54,7 @@ public class BasicEntityDefinition {
                 continue;
             }
 
-            properties.add(new PropertyDefinition(name, field));
+            addProperty(new PropertyDefinition(name, field));
         }
 
         // Get bean properties
@@ -60,38 +63,32 @@ public class BasicEntityDefinition {
                 continue;
             }
 
-            properties.add(new PropertyDefinition(name, beanProperty));
+            addProperty(new PropertyDefinition(name, beanProperty));
         }
 
-        // Find Id
+        // Find Id and fields
         for (PropertyDefinition property : getProperties()) {
-            if (property.isAnnotationPresent(Id.class)) {
+            // Check for property
+            if (property.isAnnotationPresent(ManyToMany.class)) {
+                continue;
+            } else if (property.isAnnotationPresent(ManyToOne.class)) {
+                continue;
+            } else if (property.isAnnotationPresent(OneToMany.class)) {
+                continue;
+            } else if (property.isAnnotationPresent(Id.class)) {
                 // Verify no duplicate Ids
                 if (this.idDefinition != null) {
                     throw new DefinitionException("Duplicate Id property found for entity '" + this.name + "'.");
                 }
 
                 this.idDefinition = new IdDefinition(property);
+            } else if (!property.isAnnotationPresent(Ignore.class)) {
+                fieldDefinitions.add(new FieldDefinition(property));
             }
         }
 
         if (idDefinition == null) {
             throw new DefinitionException("Id property required for entity '" + getName() + "'.");
-        }
-    }
-
-    private void inspectBasicFields() {
-        for (java.lang.reflect.Field field : entityType.getFields()) {
-            int modifiers = field.getModifiers();
-            if (Modifier.isPublic(modifiers) || Modifier.isStatic(modifiers)) {
-                continue;
-            }
-
-            if (field.isAnnotationPresent(Ignore.class)) {
-                continue;
-            }
-
-
         }
     }
 
@@ -123,7 +120,28 @@ public class BasicEntityDefinition {
         idDefinition.set(entity, value);
     }
 
-    protected List<PropertyDefinition> getProperties() {
-        return properties;
+    public List<PropertyDefinition> getProperties() {
+        return new ArrayList(properties.values());
+    }
+
+    public boolean hasProperty(String propertyName) {
+        return properties.containsKey(propertyName);
+    }
+
+    public PropertyDefinition getProperty(String propertyName) {
+        return properties.get(propertyName);
+    }
+
+    private void addProperty(PropertyDefinition property) {
+        if (properties.containsKey(property.getName())) {
+            throw new DefinitionException("Property '" + getName() + "." + property.getName() +
+                    "' has multiple definitions.");
+        }
+
+        properties.put(property.getName(), property);
+    }
+
+    public List<FieldDefinition> getFieldDefinitions() {
+        return fieldDefinitions;
     }
 }
