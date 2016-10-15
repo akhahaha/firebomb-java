@@ -21,6 +21,10 @@ public class DefaultEntityParser implements EntityParser {
             throw new FirebombException(e);
         }
 
+        if (data.getValue() == null && data.getChildren().isEmpty()) {
+            return null;
+        }
+
         // Set ID
         entityDef.setId(entity, (String) data.child(entityDef.getIdName()).getValue());
 
@@ -33,13 +37,11 @@ public class DefaultEntityParser implements EntityParser {
         }
 
         // Set relations
-        // TODO Implement eager loading
         for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
             List<Object> foreignEntities = new ArrayList<>();
             if (data.child(manyToManyDef.getName()) != null) {
                 for (Data foreignEntityData : data.child(manyToManyDef.getName()).getChildren()) {
-                    foreignEntities.add(deserializeBasicEntity(manyToManyDef.getForeignEntityDefinition(),
-                            foreignEntityData));
+                    foreignEntities.add(deserialize(manyToManyDef.getForeignEntityType(), foreignEntityData));
                 }
             }
             manyToManyDef.set(entity, foreignEntities);
@@ -47,7 +49,7 @@ public class DefaultEntityParser implements EntityParser {
 
         for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
             if (data.child(manyToOneDef.getName()) != null) {
-                manyToOneDef.set(entity, deserializeBasicEntity(manyToOneDef.getForeignEntityDefinition(),
+                manyToOneDef.set(entity, deserialize(manyToOneDef.getForeignEntityType(),
                         data.child(manyToOneDef.getName()).getChildren().get(0)));
             }
         }
@@ -56,26 +58,11 @@ public class DefaultEntityParser implements EntityParser {
             List<Object> foreignEntities = new ArrayList<>();
             if (data.child(oneToManyDef.getName()) != null) {
                 for (Data foreignEntityData : data.child(oneToManyDef.getName()).getChildren()) {
-                    foreignEntities.add(deserializeBasicEntity(oneToManyDef.getForeignEntityDefinition(),
-                            foreignEntityData));
+                    foreignEntities.add(deserialize(oneToManyDef.getForeignEntityType(), foreignEntityData));
                 }
             }
             oneToManyDef.set(entity, foreignEntities);
         }
-
-        return entity;
-    }
-
-    private <T> T deserializeBasicEntity(BasicEntityDefinition entityDef, Data data) {
-        T entity;
-        try {
-            entity = (T) entityDef.getEntityType().newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-            throw new FirebombException(e);
-        }
-
-        // Set ID
-        entityDef.setId(entity, data.child(entityDef.getIdName()).getValue(String.class));
 
         return entity;
     }
@@ -87,7 +74,6 @@ public class DefaultEntityParser implements EntityParser {
         Data rootData = new Data();
 
         // Add Id
-        String idName = entityDef.getIdName();
         String entityId = entityDef.getId(entity);
         String entityPath = StringUtils.path(entityDef.getReference(), entityId);
         rootData.setValue(StringUtils.path(entityPath, entityDef.getIdName()), entityId);
@@ -104,37 +90,47 @@ public class DefaultEntityParser implements EntityParser {
 
         // Add ManyToMany
         for (ManyToManyDefinition manyToManyDef : entityDef.getManyToManyDefinitions()) {
-            String foreignIdName = manyToManyDef.getForeignIdName();
             for (Object foreignEntity : manyToManyDef.get(entity)) {
                 String foreignId = manyToManyDef.getForeignId(foreignEntity);
-                rootData.setValue(StringUtils.path(
-                        entityPath, manyToManyDef.getName(), foreignId, foreignIdName), foreignId);
-                rootData.setValue(StringUtils.path(
-                        manyToManyDef.constructForeignIndexPath(foreignId), entityId, idName), entityId);
+                rootData = serializeBasicEntity(rootData,
+                        StringUtils.path(entityPath, manyToManyDef.getName(), foreignId),
+                        manyToManyDef.getForeignEntityDefinition(), foreignEntity);
+                rootData = serializeBasicEntity(rootData, StringUtils.path(
+                        manyToManyDef.constructForeignIndexPath(foreignId), entityId), entityDef, entity);
             }
         }
 
         // Add ManyToOne
         for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
             Object foreignEntity = manyToOneDef.get(entity);
-            String foreignIdName = manyToOneDef.getForeignIdName();
             String foreignId = manyToOneDef.getForeignId(foreignEntity);
-            rootData.setValue(StringUtils.path(
-                    entityPath, manyToOneDef.getName(), foreignId, foreignIdName), foreignId);
-            rootData.setValue(StringUtils.path(
-                    manyToOneDef.constructForeignIndexPath(foreignId), entityId, idName), entityId);
+            rootData = serializeBasicEntity(rootData,
+                    StringUtils.path(entityPath, manyToOneDef.getName(), foreignId),
+                    manyToOneDef.getForeignEntityDefinition(), foreignEntity);
+            rootData = serializeBasicEntity(rootData, StringUtils.path(
+                    manyToOneDef.constructForeignIndexPath(foreignId), entityId), entityDef, entity);
         }
 
         // Add OneToMany
         for (OneToManyDefinition oneToManyDef : entityDef.getOneToManyDefinitions()) {
-            String foreignIdName = oneToManyDef.getForeignIdName();
             for (Object foreignEntity : oneToManyDef.get(entity)) {
                 String foreignId = oneToManyDef.getForeignId(foreignEntity);
-                rootData.setValue(StringUtils.path(
-                        entityPath, oneToManyDef.getName(), foreignId, foreignIdName), foreignId);
-                rootData.setValue(StringUtils.path(
-                        oneToManyDef.constructForeignFieldPath(foreignId), entityId, idName), entityId);
+                rootData = serializeBasicEntity(rootData,
+                        StringUtils.path(entityPath, oneToManyDef.getName(), foreignId),
+                        oneToManyDef.getForeignEntityDefinition(), foreignEntity);
+                rootData = serializeBasicEntity(rootData, StringUtils.path(
+                        oneToManyDef.constructForeignFieldPath(foreignId), entityId), entityDef, entity);
             }
+        }
+
+        return rootData;
+    }
+
+    private Data serializeBasicEntity(Data rootData, String path, BasicEntityDefinition entityDefinition,
+                                      Object entity) {
+        rootData.setValue(StringUtils.path(path, entityDefinition.getIdName()), entityDefinition.getId(entity));
+        for (FieldDefinition fieldDefinition : entityDefinition.getFieldDefinitions()) {
+            rootData.setValue(StringUtils.path(path, fieldDefinition.getName()), fieldDefinition.get(entity));
         }
 
         return rootData;
