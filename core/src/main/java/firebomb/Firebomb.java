@@ -157,7 +157,9 @@ public class Firebomb {
                         @Override
                         public CompletionStage<Void> apply(T existingEntity) {
                             Data writeData = new Data();
-                            writeData.setChildMap(entityParser.serialize(existingEntity).toChildDeleteMap());
+                            if (existingEntity != null) {
+                                writeData.setChildMap(entityParser.serialize(existingEntity).toChildDeleteMap());
+                            }
                             writeData.setChildMap(entityParser.serialize(entity).toChildMap());
                             return connection.write(rootPath, writeData);
                         }

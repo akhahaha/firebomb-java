@@ -3,6 +3,7 @@ package firebomb.definition;
 import firebomb.annotation.ManyToMany;
 import firebomb.annotation.ManyToOne;
 import firebomb.annotation.OneToMany;
+import firebomb.annotation.OneToOne;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -15,6 +16,7 @@ public class EntityDefinition extends BasicEntityDefinition {
     private List<ManyToManyDefinition> manyToManyDefinitions = new ArrayList<>();
     private List<ManyToOneDefinition> manyToOneDefinitions = new ArrayList<>();
     private List<OneToManyDefinition> oneToManyDefinitions = new ArrayList<>();
+    private List<OneToOneDefinition> oneToOneDefinitions = new ArrayList<>();
 
     public EntityDefinition(Class<?> entityType) throws DefinitionException {
         super(entityType);
@@ -27,6 +29,8 @@ public class EntityDefinition extends BasicEntityDefinition {
                 manyToOneDefinitions.add(new ManyToOneDefinition(property));
             } else if (property.isAnnotationPresent(OneToMany.class)) {
                 oneToManyDefinitions.add(new OneToManyDefinition(property));
+            } else if (property.isAnnotationPresent(OneToOne.class)) {
+                oneToOneDefinitions.add(new OneToOneDefinition(property));
             }
         }
     }
@@ -41,6 +45,10 @@ public class EntityDefinition extends BasicEntityDefinition {
 
     public List<ManyToManyDefinition> getManyToManyDefinitions() {
         return manyToManyDefinitions;
+    }
+
+    public List<OneToOneDefinition> getOneToOneDefinitions() {
+        return oneToOneDefinitions;
     }
 
     private Class getGenericParameterClass(Type type) {

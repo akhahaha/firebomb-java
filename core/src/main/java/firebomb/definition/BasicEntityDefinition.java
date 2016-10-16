@@ -75,7 +75,9 @@ public class BasicEntityDefinition {
                 continue;
             } else if (property.isAnnotationPresent(OneToMany.class)) {
                 continue;
-            } else if (property.isAnnotationPresent(Id.class)) {
+            } else if (property.isAnnotationPresent(OneToOne.class)) {
+                continue;
+            } if (property.isAnnotationPresent(Id.class)) {
                 // Verify no duplicate Ids
                 if (this.idDefinition != null) {
                     throw new DefinitionException("Duplicate Id property found for entity '" + this.name + "'.");

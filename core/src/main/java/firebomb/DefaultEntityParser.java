@@ -64,6 +64,13 @@ public class DefaultEntityParser implements EntityParser {
             oneToManyDef.set(entity, foreignEntities);
         }
 
+        for (OneToOneDefinition oneToOneDef : entityDef.getOneToOneDefinitions()) {
+            if (data.child(oneToOneDef.getName()) != null) {
+                oneToOneDef.set(entity, deserialize(oneToOneDef.getForeignEntityType(),
+                        data.child(oneToOneDef.getName()).getChildren().get(0)));
+            }
+        }
+
         return entity;
     }
 
@@ -103,6 +110,9 @@ public class DefaultEntityParser implements EntityParser {
         // Add ManyToOne
         for (ManyToOneDefinition manyToOneDef : entityDef.getManyToOneDefinitions()) {
             Object foreignEntity = manyToOneDef.get(entity);
+            if (foreignEntity == null) {
+                continue;
+            }
             String foreignId = manyToOneDef.getForeignId(foreignEntity);
             rootData = serializeBasicEntity(rootData,
                     StringUtils.path(entityPath, manyToOneDef.getName(), foreignId),
@@ -121,6 +131,20 @@ public class DefaultEntityParser implements EntityParser {
                 rootData = serializeBasicEntity(rootData, StringUtils.path(
                         oneToManyDef.constructForeignFieldPath(foreignId), entityId), entityDef, entity);
             }
+        }
+
+        // Add OneToOne
+        for (OneToOneDefinition oneToOneDef : entityDef.getOneToOneDefinitions()) {
+            Object foreignEntity = oneToOneDef.get(entity);
+            if (foreignEntity == null) {
+                continue;
+            }
+            String foreignId = oneToOneDef.getForeignId(foreignEntity);
+            rootData = serializeBasicEntity(rootData,
+                    StringUtils.path(entityPath, oneToOneDef.getName(), foreignId),
+                    oneToOneDef.getForeignEntityDefinition(), foreignEntity);
+            rootData = serializeBasicEntity(rootData, StringUtils.path(
+                    oneToOneDef.constructForeignIndexPath(foreignId), entityId), entityDef, entity);
         }
 
         return rootData;
